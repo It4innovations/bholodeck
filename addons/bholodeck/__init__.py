@@ -1,5 +1,5 @@
 #####################################################################################################################
-# Copyright(C) 2011-2023 IT4Innovations National Supercomputing Center, VSB - Technical University of Ostrava
+# Copyright(C) 2023-2026 IT4Innovations National Supercomputing Center, VSB - Technical University of Ostrava
 #
 # This program is free software : you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,10 +18,10 @@
 
 bl_info = {
     "name" : "bholodeck",
-    "author" : "Milan Jaros, Petr Strakos, Marketa Hrabankova",
+    "author" : "Milan Jaros, Petr Strakos, Marketa Foltynkova",
     "description" : "Collaborate and Create in VR",
-    "blender" : (3, 3, 0),
-    "version" : (0, 0, 4),
+    "blender" : (4, 5, 0),
+    "version" : (0, 0, 7),
     "location": "3D View > Sidebar > VR",
     "category" : "3D View",
 }

@@ -1,5 +1,5 @@
 #####################################################################################################################
-# Copyright(C) 2011-2023 IT4Innovations National Supercomputing Center, VSB - Technical University of Ostrava
+# Copyright(C) 2023-2026 IT4Innovations National Supercomputing Center, VSB - Technical University of Ostrava
 #
 # This program is free software : you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -122,7 +122,7 @@ def install_dependencies():
     for dependency in python_dependencies:
         install_and_import_module(module_name=dependency.module,
                                   package_name=dependency.package,
-                                  global_name=dependency.name)                                 
+                                  global_name=dependency.name)                                  
     
 class BHOLODECK_OT_install_dependencies(Operator):
     bl_idname = 'bholodeck.install_dependencies'
@@ -134,7 +134,6 @@ class BHOLODECK_OT_install_dependencies(Operator):
     def execute(self, context):
         try:
             install_dependencies()
-            preferences().dependencies_installed = True
             
             #enable_internal_addons()
             #install_external_addons()
@@ -162,7 +161,6 @@ class BHOLODECK_OT_update_dependencies(Operator):
     def execute(self, context):
         try:
             install_dependencies()
-            preferences().dependencies_installed = True
             
             #enable_internal_addons()
             #install_external_addons()
@@ -258,16 +256,16 @@ class BHolodeckPreferences(AddonPreferences):
 
         box = layout.box()
 
-        #if self.is_client():
-        login_split = box.split(**factor(0.25), align=True)
-        login_split.label(text='Login:')
-        login_box = login_split.row(align=True)        
-        login_box.prop(self, 'login', text='')            
+        if self.is_client():
+            login_split = box.split(**factor(0.25), align=True)
+            login_split.label(text='Login:')
+            login_box = login_split.row(align=True)        
+            login_box.prop(self, 'login', text='')            
 
-        password_split = box.split(**factor(0.25), align=True)
-        password_split.label(text='Password:')
-        password_box = password_split.row(align=True)        
-        password_box.prop(self, 'password', text='')
+            password_split = box.split(**factor(0.25), align=True)
+            password_split.label(text='Password:')
+            password_box = password_split.row(align=True)        
+            password_box.prop(self, 'password', text='')
 
     def is_server(self):
         return self.server_type == 'SERVER'
@@ -296,7 +294,6 @@ def register():
     try:
         import grpc
         import PIL
-        import pyaudio
 
         preferences().dependencies_installed = True
     except ModuleNotFoundError:

@@ -24,6 +24,6 @@ BHolodeck (VR Holodeck for Blender) is a multi-user scene inspection tool based 
 Install the add-on (addons/bholodeck) using Blender preferences and set the server, the username and the password. Install/Update dependencies (the button in Blender preferences).
 
 ## Acknowledgement
-This work was supported by the Doctoral grant competition VSB-Technical University of Ostrava, reg. no. CZ.02.2.69/0.0/0.0/19_073/0016945 within the Operational Programme Research, Development and Education, under project DGS/TEAM/2020-008 "Development of a tool for scientific data processing and visualization in VR with multi-user support".
+This work was supported by the Ministry of Education, Youth and Sports of the Czech Republic through the e-INFRA CZ (ID:90254).
 
-This work was supported by the Ministry of Education, Youth and Sports of the Czech Republic through the e-INFRA CZ (ID:90140).
+This work was supported by the Doctoral grant competition VSB-Technical University of Ostrava, reg. no. CZ.02.2.69/0.0/0.0/19_073/0016945 within the Operational Programme Research, Development and Education, under project DGS/TEAM/2020-008 "Development of a tool for scientific data processing and visualization in VR with multi-user support".

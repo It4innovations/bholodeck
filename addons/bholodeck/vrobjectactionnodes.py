@@ -1,5 +1,5 @@
 #####################################################################################################################
-# Copyright(C) 2011-2023 IT4Innovations National Supercomputing Center, VSB - Technical University of Ostrava
+# Copyright(C) 2023-2026 IT4Innovations National Supercomputing Center, VSB - Technical University of Ostrava
 #
 # This program is free software : you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -20,6 +20,13 @@ import bpy
 from bpy.types import NodeTree, Node, NodeSocket
 
 from pathlib import Path
+
+#from PIL import Image, ImageDraw, ImageFont
+
+import mathutils
+import bmesh
+import sys
+
 
 # Derived from the NodeTree base type, similar to Menu, Operator, Panel, etc.
 class VRObjectActionTree(NodeTree):

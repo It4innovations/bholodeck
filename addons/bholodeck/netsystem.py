@@ -1,5 +1,5 @@
 #####################################################################################################################
-# Copyright(C) 2011-2023 IT4Innovations National Supercomputing Center, VSB - Technical University of Ostrava
+# Copyright(C) 2023-2026 IT4Innovations National Supercomputing Center, VSB - Technical University of Ostrava
 #
 # This program is free software : you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -17,9 +17,22 @@
 #####################################################################################################################
 
 import bpy
+import socket
+import sys
 import threading
+import queue
+
+import struct
+
+from . import bholodeck_pref
 
 from concurrent import futures
+import logging
+
+try:
+    import grpc
+except:
+    bholodeck_pref.install_dependencies()
 
 import grpc
 
@@ -27,6 +40,9 @@ from . import bholodeck_pref
 from . import netsystem_pb2
 from . import netsystem_pb2_grpc
 
+import uuid
+
+import mathutils
 import time
 import traceback
 

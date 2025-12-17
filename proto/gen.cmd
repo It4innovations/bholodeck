@@ -1,6 +1,6 @@
 @echo off
 REM #####################################################################################################################
-REM # Copyright(C) 2011-2023 IT4Innovations National Supercomputing Center, VSB - Technical University of Ostrava
+REM # Copyright(C) 2023-2026 IT4Innovations National Supercomputing Center, VSB - Technical University of Ostrava
 REM #
 REM # This program is free software : you can redistribute it and/or modify
 REM # it under the terms of the GNU General Public License as published by
@@ -17,6 +17,6 @@ REM # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 REM #
 REM #####################################################################################################################
 
-d:\apps\blender-3.4.1-windows-x64\3.4\python\bin\python run_codegen.py
+d:\apps\blender-4.5.5-windows-x64\4.5\python\bin\python.exe run_codegen.py
 
 pause

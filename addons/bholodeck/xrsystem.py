@@ -1,5 +1,5 @@
 #####################################################################################################################
-# Copyright(C) 2011-2023 IT4Innovations National Supercomputing Center, VSB - Technical University of Ostrava
+# Copyright(C) 2023-2026 IT4Innovations National Supercomputing Center, VSB - Technical University of Ostrava
 #
 # This program is free software : you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -21,9 +21,15 @@ import mathutils
 from . import bholodeck_pref
 import os
 
+import bpy
+import gpu
+from gpu_extras.batch import batch_for_shader
+import math
+
 from mathutils import Euler, Matrix, Quaternion, Vector
 
 controller_type_items = [
+    ("SIMPLE", "Simple", ""),
     ("HTC", "HTC Vive Controller", ""),
     ("VALVE", "Valve Index Controller", ""),
     ("ACER", "Windows Mixed Reality (ACER)", ""),
@@ -120,8 +126,8 @@ class VIEW_PT_XRPanel(bpy.types.Panel):
         row = layout.row()
         row.prop(context.scene.view_pg_xrsystem, "controller_type")
 
-        # row = layout.row()
-        # row.prop(context.scene.view_pg_xrsystem, "avatar_type")
+        row = layout.row()
+        row.prop(context.scene.view_pg_xrsystem, "avatar_type")
 
         row = layout.row()
         if context.scene.xrsystem.enabled == False:
@@ -189,7 +195,12 @@ class XRSystem:
         self.headset_object = None
         self.body_object = None
         self.controller0_object = None
-        self.controller1_object = None        
+        self.controller1_object = None
+
+        self.controller_active = 0
+        #self.shader = gpu.shader.from_builtin('3D_SMOOTH_COLOR')
+        #self.shader = gpu.shader.from_builtin('3D_UNIFORM_COLOR')
+        self.shader = gpu.shader.from_builtin('UNIFORM_COLOR')        
 
     def create_collection(self, context, name):
         if name in bpy.data.collections:
@@ -253,11 +264,103 @@ class XRSystem:
         #except:
         #    pass
 
+    def rotation_matrix_from_vectors(self, context, vec1, vec2):
+        """ Returns a rotation matrix that aligns vec1 to vec2 """
+        a, b = (vec1 / vec1.magnitude).xyz, (vec2 / vec2.magnitude).xyz
+        v = mathutils.Vector(a).cross(Vector(b))
+        c = a.dot(b)
+        s = math.sqrt((1 + c) * 2)
+        if s == 0:
+            s = 1
+
+        invs = 1 / s
+
+        return mathutils.Matrix(((1 - 2 * (v[1] * v[1] + v[2] * v[2]) * invs, 2 * (v[0] * v[1] - v[2] * c) * invs, 2 * (v[0] * v[2] + v[1] * c) * invs, 0),
+                    (2 * (v[0] * v[1] + v[2] * c) * invs, 1 - 2 * (v[0] * v[0] + v[2] * v[2]) * invs, 2 * (v[1] * v[2] - v[0] * c) * invs, 0),
+                    (2 * (v[0] * v[2] - v[1] * c) * invs, 2 * (v[1] * v[2] + v[0] * c) * invs, 1 - 2 * (v[0] * v[0] + v[1] * v[1]) * invs, 0),
+                    (0, 0, 0, 1)))        
+
+    def get_batch(self, context, matrix_from):        
+            # Get start and end points
+            start = matrix_from @ Vector(self.line_coords[0])
+            end = matrix_from @ Vector(self.line_coords[1])
+
+            normal = Vector(end - start)
+
+            if context.scene.xrsystem.enabled == True:
+                if context.scene.xrsystem.controller_active == 0:
+                    co = context.scene.xrsystem.controller0_object
+                    co_id = 0
+                else:
+                    co = context.scene.xrsystem.controller1_object
+                    co_id = 1
+
+                hit, loc, obj, p, n = context.scene.vrmenunodes.ray_cast_scene(context, co, co_id)
+                if hit == True:
+                    end = loc
+                    normal = n
+
+            position = end
+            segments = 5
+            radius = 0.03
+            circle_verts = [(math.cos(i * 2 * math.pi / segments) * radius, 
+                            math.sin(i * 2 * math.pi / segments) * radius, 
+                            0) for i in range(segments)]
+            
+            # Connect the last point with the first one to close the circle
+            circle_verts.append(circle_verts[0])
+
+            # Calculate the rotation matrix from the XY plane to the desired normal
+            rot_matrix = self.rotation_matrix_from_vectors(context, mathutils.Vector((0, 0, 1)), normal.normalized())
+
+            # Apply rotation and translation to the vertices
+            circle_verts = [rot_matrix @ mathutils.Vector(v) + mathutils.Vector(position) for v in circle_verts]
+
+
+            #shader = gpu.shader.from_builtin('3D_UNIFORM_COLOR')
+            batch_circle = batch_for_shader(self.shader, 'LINE_STRIP', {"pos": circle_verts})      
+            
+            # Create the line geometry
+            coords = [start, end]
+            batch = batch_for_shader(self.shader, 'LINES', {"pos": coords})
+
+            return batch, batch_circle
+
+    def draw_gizmo(self, context):
+
+        if context.scene.xrsystem.controller_active == 0:
+            if context.scene.view_pg_xrsystem.controller_type == "ACER":
+                matrix_from = context.scene.xrsystem.get_controller_pose_matrix(context, 1, True, 1.0)
+            else:
+                matrix_from = context.scene.xrsystem.get_controller_pose_matrix(context, 0, True, 1.0)
+
+            batch, batch_circle = self.get_batch(context, matrix_from)
+        else:
+            if context.scene.view_pg_xrsystem.controller_type == "ACER":
+                matrix_from = context.scene.xrsystem.get_controller_pose_matrix(context, 0, True, 1.0)
+            else:
+                matrix_from = context.scene.xrsystem.get_controller_pose_matrix(context, 1, True, 1.0)    
+
+            batch, batch_circle = self.get_batch(context, matrix_from)   
+
+        # Set the line color
+        line_color = (1, 1, 0, 1)
+
+        # Draw the line
+        self.shader.bind()
+        self.shader.uniform_float("color", line_color)
+        gpu.state.line_width_set(1.0)
+        batch.draw(self.shader)
+        batch_circle.draw(self.shader)
+
     def deinit(self, context):
         if self.xr_session_is_running(context):
             bpy.ops.wm.xr_session_toggle()    
 
-        #bpy.app.timers.unregister(sync_xr_timer)    
+        #bpy.app.timers.unregister(sync_xr_timer)
+
+        if context.scene.view_pg_xrsystem.controller_type == "SIMPLE":
+            bpy.types.SpaceView3D.draw_handler_remove(self.draw_handle, 'XR')
 
         self.enabled = False
 
@@ -432,7 +535,10 @@ class XRSystem:
 
         self.enabled = True
 
-        bpy.ops.xrsystem.sync_xr_timer()
+        if context.scene.view_pg_xrsystem.controller_type == "SIMPLE":
+            self.draw_handle = bpy.types.SpaceView3D.draw_handler_add(self.draw_gizmo, (context, ), 'XR', 'POST_VIEW')
+        else:
+            bpy.ops.xrsystem.sync_xr_timer()        
 
         return
 
@@ -481,37 +587,69 @@ class XRSystem:
 
     def update(self, context):     
         return
+    
+    def get_controller_pose_matrix(self, context, idx, is_grip, scale):
+        return get_controller_pose_matrix(context, idx, is_grip, scale)     
 
     def action_set_init(self, context, scene):
-        #models
-        pref = bholodeck_pref.preferences()
-        objH = self.get_or_create_model(context, pref.username + "_HEMPTY")
-        objB = self.get_or_create_model(context, pref.username + "_BODY")
-        objC0 = self.get_or_create_model(context, pref.username + "_CONTROLLER0")
-        objC1 = self.get_or_create_model(context, pref.username + "_CONTROLLER1")
 
-        objH.rotation_mode = 'XYZ'
-        objB.rotation_mode = 'XYZ'
-        objC0.rotation_mode = 'XYZ'
-        objC1.rotation_mode = 'XYZ'       
+        if context.scene.view_pg_xrsystem.controller_type == "SIMPLE": 
+            self.headset_object = None
+            self.body_object = None
+            self.controller0_object = None
+            self.controller1_object = None        
 
-        #context.window_manager.xr_session_settings.headset_object = objH
-        #context.window_manager.xr_session_settings.controller0_object = objC0
-        ##context.window_manager.xr_session_settings.controller1_object = objC1
+            # col.prop(session_settings, "show_floor", text="Floor")
+            # col.prop(session_settings, "show_annotation", text="Annotations")
 
-        self.headset_object = objH
-        self.body_object = objB
-        self.controller0_object = objC0
-        self.controller1_object = objC1        
+            # col.prop(session_settings, "show_selection", text="Selection")
+            # col.prop(session_settings, "show_controllers", text="Controllers")
+            # col.prop(session_settings, "show_custom_overlays", text="Custom Overlays")
+            # col.prop(session_settings, "show_object_extras", text="Object Extras")            
 
-        #context.window_manager.xr_session_settings.headset_object_enable = True
-        #context.window_manager.xr_session_settings.controller0_object_enable = True
-        ##context.window_manager.xr_session_settings.controller1_object_enable = True
+            #context.window_manager.xr_session_settings.headset_object_enable = True
+            #context.window_manager.xr_session_settings.controller0_object_enable = True
+            ##context.window_manager.xr_session_settings.controller1_object_enable = True
 
-        context.window_manager.xr_session_settings.show_selection = True
-        context.window_manager.xr_session_settings.use_positional_tracking = True
-        context.window_manager.xr_session_settings.use_absolute_tracking = True
-        context.window_manager.xr_session_settings.show_controllers = False
+            context.window_manager.xr_session_settings.show_floor = False
+            context.window_manager.xr_session_settings.show_annotation = False
+            context.window_manager.xr_session_settings.show_selection = False
+
+            context.window_manager.xr_session_settings.use_positional_tracking = True
+            context.window_manager.xr_session_settings.use_absolute_tracking = True
+            context.window_manager.xr_session_settings.show_controllers = True
+            #bpy.context.screen.shading.vr_show_controllers = True
+            #bpy.data.screens["Layout"].shading.vr_show_controllers = True
+        else:
+            #models
+            pref = bholodeck_pref.preferences()
+            objH = self.get_or_create_model(context, pref.username + "_HEMPTY")
+            objB = self.get_or_create_model(context, pref.username + "_BODY")
+            objC0 = self.get_or_create_model(context, pref.username + "_CONTROLLER0")
+            objC1 = self.get_or_create_model(context, pref.username + "_CONTROLLER1")
+
+            objH.rotation_mode = 'XYZ'
+            objB.rotation_mode = 'XYZ'
+            objC0.rotation_mode = 'XYZ'
+            objC1.rotation_mode = 'XYZ'       
+
+            #context.window_manager.xr_session_settings.headset_object = objH
+            #context.window_manager.xr_session_settings.controller0_object = objC0
+            ##context.window_manager.xr_session_settings.controller1_object = objC1
+
+            self.headset_object = objH
+            self.body_object = objB
+            self.controller0_object = objC0
+            self.controller1_object = objC1        
+
+            #context.window_manager.xr_session_settings.headset_object_enable = True
+            #context.window_manager.xr_session_settings.controller0_object_enable = True
+            ##context.window_manager.xr_session_settings.controller1_object_enable = True
+
+            context.window_manager.xr_session_settings.show_selection = True
+            context.window_manager.xr_session_settings.use_positional_tracking = True
+            context.window_manager.xr_session_settings.use_absolute_tracking = True
+            context.window_manager.xr_session_settings.show_controllers = False
 
     def vr_landmark_init(self, context, scene):
 

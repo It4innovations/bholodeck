@@ -1,5 +1,5 @@
 #####################################################################################################################
-# Copyright(C) 2011-2023 IT4Innovations National Supercomputing Center, VSB - Technical University of Ostrava
+# Copyright(C) 2023-2026 IT4Innovations National Supercomputing Center, VSB - Technical University of Ostrava
 #
 # This program is free software : you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -414,7 +414,8 @@ class VRMenuNodes:
 
         #font_file = Path(sys.path[0]) / '..' / '..' / 'datafiles' / 'fonts' / 'bmonofont-i18n.ttf'
         font = ImageFont.truetype(str(font_file), self.item_font_size)
-        w,h = font.getsize(name)
+        bbox = font.getbbox(name)
+        w, h = bbox[2] - bbox[0], bbox[3] - bbox[1]
         
         d = ImageDraw.Draw(img)
         d.text(((self.item_image_w - w) / 2, (self.item_image_h - h) / 2), name, font=font, fill=self.item_font_color)
@@ -436,7 +437,8 @@ class VRMenuNodes:
 
             #font_file_selected = Path(sys.path[0]) / '..' / '..' / 'datafiles' / 'fonts' / 'bmonofont-i18n.ttf'
             font_selected = ImageFont.truetype(str(font_file), self.item_font_size)
-            w,h = font.getsize(name)
+            bbox = font.getbbox(name)
+            w, h = bbox[2] - bbox[0], bbox[3] - bbox[1]
             
             d_selected = ImageDraw.Draw(img_selected)
             d_selected.text(((self.item_image_w - w) / 2, (self.item_image_h - h) / 2), name, font=font_selected, fill=(217,217,217,255))
@@ -472,9 +474,11 @@ class VRMenuNodes:
 
         img = Image.new('RGB', (self.item_image_w, self.item_image_h), color = (81, 119, 179))
 
-        font_file = Path(sys.path[0]) / '..' / '..' / 'datafiles' / 'fonts' / 'bmonofont-i18n.ttf'
+        scripts_dir = bpy.utils.user_resource('SCRIPTS')
+        font_file = os.path.join(scripts_dir, 'addons/bholodeck/bmonofont-i18n.ttf')
         font = ImageFont.truetype(str(font_file), self.item_font_size)
-        w,h = font.getsize(name)
+        bbox = font.getbbox(name)
+        w, h = bbox[2] - bbox[0], bbox[3] - bbox[1]
         
         d = ImageDraw.Draw(img)
         d.text(((self.item_image_w - w) / 2, (self.item_image_h - h) / 2), name, font=font, fill=(217,217,217,255))
@@ -525,7 +529,7 @@ class VRMenuNodes:
         for ob in context.selected_objects:
             ob.select_set(False)                      
 
-    def ray_cast_scene(self, context, controller_obj):
+    def ray_cast_scene(self, context, controller_obj, controller):
         # Create an initial origin vector, or rather the point from where the ray will be cast
         origin = mathutils.Vector(context.scene.xrsystem.line_coords[0])
 
@@ -533,8 +537,21 @@ class VRMenuNodes:
         # and the corresponding axis from the front to the back of the projection screen is -z,
         # that is why the vector has -1 in the third column.
         direction = mathutils.Vector(context.scene.xrsystem.line_coords[1]) - mathutils.Vector(context.scene.xrsystem.line_coords[0])
-        
-        matrix_from = controller_obj.matrix_world
+
+        if controller_obj:        
+            matrix_from = controller_obj.matrix_world
+        else:
+            if controller == 0:
+                if context.scene.view_pg_xrsystem.controller_type == "ACER":
+                    matrix_from = context.scene.xrsystem.get_controller_pose_matrix(context, 1, True, 1.0)
+                else:
+                    matrix_from = context.scene.xrsystem.get_controller_pose_matrix(context, 0, True, 1.0)
+
+            if controller == 1:
+                if context.scene.view_pg_xrsystem.controller_type == "ACER":
+                    matrix_from = context.scene.xrsystem.get_controller_pose_matrix(context, 0, True, 1.0)
+                else:
+                    matrix_from = context.scene.xrsystem.get_controller_pose_matrix(context, 1, True, 1.0)            
         
         # Returns origin and direction vectors represented in the world space
         point_world, dir_world = self.get_world_vectors(origin, direction, matrix_from)
@@ -555,7 +572,7 @@ class VRMenuNodes:
         # if self.object_grabbed:
         #     self.active_object.location = self.right_controller.location() + self.active_object_location
         
-        return hit, loc, obj, point_world        
+        return hit, loc, obj, point_world, norm        
 
     def select_plane(self, context, id):
         if id < 0:
@@ -670,17 +687,22 @@ class VRMenuNodes:
 
     def trigger0_press(self, context):
         #co0 = context.window_manager.xr_session_settings.controller0_object
+        context.scene.xrsystem.controller_active = 0
         co0 = context.scene.xrsystem.controller0_object
         if context.scene.xrsystem.enabled == True:
-            context.scene.xrsystem.hide_line(context, co0.name, False) 
+            if co0:
+                context.scene.xrsystem.hide_line(context, co0.name, False) 
 
     def trigger0_release(self, context):
+        context.scene.xrsystem.controller_active = 0
+
         #co0 = context.window_manager.xr_session_settings.controller0_object
         co0 = context.scene.xrsystem.controller0_object
         if context.scene.xrsystem.enabled == True:
-            context.scene.xrsystem.hide_line(context, co0.name, True)
+            if co0:
+                context.scene.xrsystem.hide_line(context, co0.name, True)
 
-        hit, loc, obj, p = self.ray_cast_scene(context, co0)
+        hit, loc, obj, p, n = self.ray_cast_scene(context, co0, 0)
         if hit == True:
             self.deselect_all(context)
             obj.select_set(True)
@@ -690,20 +712,23 @@ class VRMenuNodes:
                 context.scene.xrsystem.vr_landmark_set(context, loc - p)
 
     def trigger1_press(self, context):
+        context.scene.xrsystem.controller_active = 1
         # co1 = context.window_manager.xr_session_settings.controller1_object
         # if context.scene.xrsystem.enabled == True:
         #     context.scene.xrsystem.hide_line(context, co1.name, False)
         co1 = context.scene.xrsystem.controller1_object
         if context.scene.xrsystem.enabled == True:
-            context.scene.xrsystem.hide_line(context, co1.name, False)  
+            if co1:
+                context.scene.xrsystem.hide_line(context, co1.name, False)  
         pass
 
     def trigger1_release(self, context):
+        context.scene.xrsystem.controller_active = 1
         # co1 = context.window_manager.xr_session_settings.controller1_object
         # if context.scene.xrsystem.enabled == True:
         #     context.scene.xrsystem.hide_line(context, co1.name, True)  
 
-        # hit, loc, obj, p = self.ray_cast_scene(context, co1)
+        # hit, loc, obj, p, n = self.ray_cast_scene(context, co1)
         # if hit == True:
         #     self.deselect_all(context)
         #     obj.select_set(True)
@@ -713,9 +738,10 @@ class VRMenuNodes:
         #         context.scene.xrsystem.vr_landmark_set(context, loc - p)
         co1 = context.scene.xrsystem.controller1_object
         if context.scene.xrsystem.enabled == True:
-            context.scene.xrsystem.hide_line(context, co1.name, True)
+            if co1:
+                context.scene.xrsystem.hide_line(context, co1.name, True)
 
-        hit, loc, obj, p = self.ray_cast_scene(context, co1)
+        hit, loc, obj, p, n = self.ray_cast_scene(context, co1, 1)
         if hit == True:
             self.deselect_all(context)
             obj.select_set(True)
@@ -1342,9 +1368,15 @@ class VIEW_PT_VRMenuPanel(bpy.types.Panel):
         row.prop(context.scene.view_pg_vrmenu, "value_float", text="Value", slider=True)
 
 def view_pg_vrmenu_value_get(self):
+    if bpy.context.scene.vrmenunodes.enabled == False:
+        return 0
+
     return bpy.context.scene.vrmenunodes.value_float_get(bpy.context)
 
 def view_pg_vrmenu_value_set(self, value):
+    if bpy.context.scene.vrmenunodes.enabled == False:
+        return 0
+
     return bpy.context.scene.vrmenunodes.value_float_set(bpy.context, value)   
 
 class VIEW_PG_VRMenu(bpy.types.PropertyGroup):
@@ -1354,7 +1386,7 @@ class VIEW_PG_VRMenu(bpy.types.PropertyGroup):
     execution_time : bpy.props.FloatProperty(name = "Execution Time")
 
 def register():
-    #bpy.utils.register_class(VRMenuTree)
+    bpy.utils.register_class(VRMenuTree)
     bpy.utils.register_class(VRMenuSocketIn)
     bpy.utils.register_class(VRMenuSocketOut)
     bpy.utils.register_class(VRMenuNodeMenu)
@@ -1380,7 +1412,7 @@ def register():
     bpy.utils.register_class(VRMenuNodesNavigationFly)
     bpy.utils.register_class(VRMenuNodesNavigationReset)
 
-    #bpy.utils.register_class(VIEW_PT_VRMenuPanel)
+    bpy.utils.register_class(VIEW_PT_VRMenuPanel)
     bpy.utils.register_class(VIEW_PG_VRMenu)
 
     bpy.types.Scene.vrmenunodes = VRMenuNodes()
@@ -1395,7 +1427,7 @@ def unregister():
     delattr(bpy.types.Scene, "view_pg_vrmenu")
     delattr(bpy.types.Scene, "vrmenunodes")
 
-    #bpy.utils.unregister_class(VIEW_PT_VRMenuPanel)
+    bpy.utils.unregister_class(VIEW_PT_VRMenuPanel)
     bpy.utils.unregister_class(VIEW_PG_VRMenu)
 
     bpy.utils.unregister_class(VRMenuNodesShow)
@@ -1407,7 +1439,7 @@ def unregister():
     bpy.utils.unregister_class(VRMenuNodesRight)
     bpy.utils.unregister_class(VRMenuNodesClick)
 
-    #bpy.utils.unregister_class(VRMenuTree)
+    bpy.utils.unregister_class(VRMenuTree)
     bpy.utils.unregister_class(VRMenuSocketIn)
     bpy.utils.unregister_class(VRMenuSocketOut)
     bpy.utils.unregister_class(VRMenuNodeMenu)
