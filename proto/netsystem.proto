@@ -1,0 +1,91 @@
+
+ // #####################################################################################################################
+ // # Copyright(C) 2011-2023 IT4Innovations National Supercomputing Center, VSB - Technical University of Ostrava
+ // #
+ // # This program is free software : you can redistribute it and/or modify
+ // # it under the terms of the GNU General Public License as published by
+ // # the Free Software Foundation, either version 3 of the License, or
+ // # (at your option) any later version.
+ // #
+ // # This program is distributed in the hope that it will be useful,
+ // # but WITHOUT ANY WARRANTY; without even the implied warranty of
+ // # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.See the
+ // # GNU General Public License for more details.
+ // #
+ // # You should have received a copy of the GNU General Public License
+ // # along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ // #
+ // #####################################################################################################################
+
+syntax = "proto3";
+
+package proto_netsystem;
+               
+service VRManagement {
+    // UserManagement   
+    rpc RegisterUser (RegisterUserRequest) returns (RegisterUserResponse) {}
+    rpc UnregisterUser (UnregisterUserRequest) returns (Empty) {}
+        
+    // PythonScriptManagement 
+    rpc SendPythonScript (SendPythonScriptRequest) returns (Empty) {}
+    
+    // AudioManagement
+    rpc SendAudio (SendAudioRequest) returns (Empty) {}
+    
+    // DataManagement 
+    rpc ExData (ExDataRequest) returns (ExDataResponse) {}
+}
+
+// UserManagement
+message RegisterUserRequest {
+    string username = 1;
+    string login = 2;
+    string password = 3;
+}
+
+message RegisterUserResponse {
+    string username = 1;
+    repeated double landmark_location = 2;
+    double landmark_angle = 3;
+}
+
+message UnregisterUserRequest {
+    string username = 1;
+}
+
+message Empty {
+
+}
+
+message Position {
+  string object_name = 1;
+  string object_type = 2;
+  repeated double object_location = 3;
+  repeated double object_rotation_quaternion = 4;
+}
+
+// PythonScriptManagement 
+message SendPythonScriptRequest {
+  string username = 1;
+  string python_script = 2;
+}
+
+// AudioManagement 
+message SendAudioRequest {
+  string username = 1;
+  bytes audio_data = 2;
+}
+
+// DataManagement
+message ExDataRequest {
+    string username = 1;
+    repeated Position position_list = 2;
+    bytes audio_data = 3;
+}
+
+// Response
+message ExDataResponse {
+  repeated Position position_list = 1;
+  repeated string python_script_list = 2;
+  repeated bytes audio_data_list = 3;
+}
